@@ -1,0 +1,26 @@
+{
+	"name": "coinswap",
+	"version": "1.0.0",
+	"description": "Coinswap",
+	"main": "run.js",
+	"repository": "https://github.com/byteball/coinswap.git",
+	"author": "tony",
+	"license": "MIT",
+	"dependencies": {
+		"@koa/cors": "^3.1.0",
+		"@tatumio/tatum": "^1.4.22",
+		"bip32": "^2.0.6",
+		"bip39": "^3.0.3",
+		"bitcoinjs-lib": "^5.2.0",
+		"ccxt": "^1.25.80",
+		"dotenv": "^8.2.0",
+		"koa": "^2.13.0",
+		"koa-bodyparser": "^4.3.0",
+		"koa-router": "^10.0.0",
+		"node-fetch": "^2.6.1",
+		"ocore": "git+https://github.com/byteball/ocore.git"
+	},
+	"resolutions": {
+		"level-rocksdb": "^4.0.0"
+	}
+}
