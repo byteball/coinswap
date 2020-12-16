@@ -84,15 +84,20 @@ async function onReceivedPayment(tx) {
 	unlock();
 }
 
+async function wait(ms) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function checkForNewPayments() {
 	console.log("will check for new payments");
-	const rows = await db.query("SELECT in_address FROM swaps WHERE in_coin='BTC' AND status='waiting'");
+	const rows = await db.query("SELECT in_address FROM swaps WHERE in_coin='BTC' AND status='waiting' AND creation_date > " + db.addTime("-7 DAY") + " ORDER BY swap_id DESC");
 	for (let { in_address } of rows) {
 		const history = await blockchain.getAddressHistory(in_address);
 		console.log("transactions", in_address, history);
 		for (let tx of history.txs) {
 			await onReceivedPayment(tx);
 		}
+		await wait(1000); // avoid rate limiting
 	}
 	console.log("finished checking for new payments");
 }
@@ -127,7 +132,7 @@ function createPayment(_type, keys, network) {
 
 async function start() {
 	blockchain_ws.on('utx', onReceivedPayment);
-	const rows = await db.query("SELECT in_address FROM swaps WHERE in_coin='BTC' AND status='waiting'");
+	const rows = await db.query("SELECT in_address FROM swaps WHERE in_coin='BTC' AND status='waiting' AND creation_date > "+ db.addTime("-7 DAY"));
 	for (let { in_address } of rows)
 		blockchain_ws.subscribeToAddress(in_address);
 	await checkForNewPayments();

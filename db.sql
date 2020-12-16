@@ -20,6 +20,8 @@ CREATE INDEX IF NOT EXISTS byInAddress ON swaps(in_address);
 -- query separator
 CREATE UNIQUE INDEX IF NOT EXISTS byInCoinInAddressIndex ON swaps(in_coin, in_address_index);
 -- query separator
+CREATE UNIQUE INDEX IF NOT EXISTS byStatusDate ON swaps(status, creation_date);
+-- query separator
 CREATE INDEX IF NOT EXISTS byOutAddress ON swaps(out_address);
 -- query separator
 CREATE TABLE IF NOT EXISTS forwards (

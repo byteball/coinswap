@@ -1,9 +1,12 @@
 /*jslint node: true */
 "use strict";
 const fetch = require('node-fetch');
+//var SocksProxyAgent = require('socks-proxy-agent');
 
 const URL = 'https://blockchain.info';
 
+//const proxy = 'socks://127.0.0.1:9150';
+//const agent = new SocksProxyAgent(proxy);
 
 const request = (endpoint, options) => {
 	return fetch(`${URL}${endpoint}`, {
@@ -11,6 +14,7 @@ const request = (endpoint, options) => {
 			Accept: 'application/json',
 			'Content-Type': 'application/json',
 		},
+	//	agent,
 		...options
 	})
 }
@@ -36,5 +40,17 @@ async function test() {
 	console.log(history);
 }
 //test();
+
+async function testRateLimit() {
+	async function wait(ms) {
+		return new Promise(resolve => setTimeout(resolve, ms));
+	}
+	for (let i = 0; i < 10; i++){
+		console.log(i);
+		await test();
+		await wait(10000);
+	}
+}
+//testRateLimit();
 
 exports.getAddressHistory = getAddressHistory;
