@@ -9,6 +9,7 @@ class WsEmitter extends EventEmitter {
 		super();
 		this.url = url;
 		this.ws = null;
+		this.addresses = [];
 		setInterval(() => {
 			this.send('ping');
 		}, 5000);
@@ -64,6 +65,8 @@ class WsEmitter extends EventEmitter {
 			finishConnection(this);
 			self.send('ping');
 			self.emit('connected');
+			for (let address of self.addresses)
+				self.subscribeToAddress(address);
 		});
 
 		self.ws.on('close', function onWsClose() {
@@ -144,6 +147,8 @@ class WsEmitter extends EventEmitter {
 
 	async subscribeToAddress(address) {
 		console.log(`will watch ${address}`);
+		if (!this.addresses.includes(address))
+			this.addresses.push(address);
 		await this.send(JSON.stringify({
 			op: "addr_sub",
 			addr: address,
