@@ -4,7 +4,7 @@
 const bitcoin = require('bitcoinjs-lib');
 const tatum = require('@tatumio/tatum');
 const blockchain_ws = require('./blockchain_ws.js');
-const blockchain = require('./blockchain.js');
+const blockcypher = require('./blockcypher.js');
 const db = require('ocore/db.js');
 const mutex = require('ocore/mutex.js');
 const addresses = require('./addresses.js');
@@ -12,9 +12,10 @@ const addresses = require('./addresses.js');
 async function onReceivedPayment(tx) {
 	const unlock = await mutex.lock('received_tx');
 	console.log('received payment', JSON.stringify(tx, null, 2));
-	const forwards = await db.query("SELECT 1 FROM forwards WHERE user_txid=?", [tx.hash]);
+	const hash = tx.hash || tx.txid;
+	const forwards = await db.query("SELECT 1 FROM forwards WHERE user_txid=?", [hash]);
 	if (forwards.length > 0) {
-		console.log(`payment ${tx.hash} already forwarded`);
+		console.log(`payment ${hash} already forwarded`);
 		return unlock();
 	}
 	const outputs = tx.out || tx.outputs;
@@ -22,7 +23,7 @@ async function onReceivedPayment(tx) {
 		throw Error(`no outputs in payload ${JSON.stringify(tx)}`);
 	for (let i = 0; i < outputs.length; i++) {
 		const output = outputs[i];
-		const address = output.addr || output.address;
+		const address = output.addr || output.address || output.addresses[0];
 		if (!address)
 			throw Error(`no address in output ${output}`);
 		const [swap] = await db.query("SELECT * FROM swaps WHERE in_coin='BTC' AND in_address=?", [address]);
@@ -36,7 +37,7 @@ async function onReceivedPayment(tx) {
 		const forwarded_amount = (output.value - fee) / 1e8;
 		const body = new tatum.TransferBtcBasedBlockchain();
 		body.fromUTXO = [{
-			txHash: tx.hash,
+			txHash: hash,
 			index: i,
 			privateKey: privateKey,
 		}];
@@ -76,7 +77,7 @@ async function onReceivedPayment(tx) {
 		const hex = psbt.extractTransaction().toHex();
 		console.log({hex})*/
 
-		await db.query("INSERT INTO forwards (txid, user_txid, swap_id, amount) VALUES(?,?,?,?)", [resp.txId, tx.hash, swap.swap_id, forwarded_amount]);
+		await db.query("INSERT INTO forwards (txid, user_txid, swap_id, amount) VALUES(?,?,?,?)", [resp.txId, hash, swap.swap_id, forwarded_amount]);
 		await db.query("UPDATE swaps SET status='forwarded', forwarded_amount=? WHERE swap_id=?", [forwarded_amount, swap.swap_id]);
 		return unlock();
 	}
@@ -92,12 +93,12 @@ async function checkForNewPayments() {
 	console.log("will check for new payments");
 	const rows = await db.query("SELECT in_address FROM swaps WHERE in_coin='BTC' AND status='waiting' AND creation_date > " + db.addTime("-7 DAY") + " ORDER BY swap_id DESC");
 	for (let { in_address } of rows) {
-		const history = await blockchain.getAddressHistory(in_address);
+		const history = await blockcypher.getAddressHistory(in_address);
 		console.log("transactions", in_address, history);
 		for (let tx of history.txs) {
 			await onReceivedPayment(tx);
 		}
-		await wait(1000); // avoid rate limiting
+		await wait(1000); // avoid rate limiting (10 sec for blockchain.info)
 	}
 	console.log("finished checking for new payments");
 }
