@@ -84,8 +84,11 @@ router.post('/create_swap', async (ctx) => {
 	
 	ctx.body = {
 		status: 'success',
-		swap_id,
-		in_address,
+		data: {
+			swap_id,
+			in_address,
+			expected_out_amount,
+		},
 	};
 });
 
