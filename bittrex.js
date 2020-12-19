@@ -32,6 +32,7 @@ async function getBuyResult(quote_amount) {
 	if (!final_price)
 		return { err: `not enough orders in the orderbook to fill ${quote_amount} BTC` };
 	const slippage = (final_price - top_price) / top_price;
+	total = ccxt.decimalToPrecision(total, ccxt.TRUNCATE, 8);
 	console.log({ total, final_price, slippage });
 	return { total, final_price, slippage };
 }
