@@ -90,17 +90,28 @@ async function wait(ms) {
 }
 
 async function checkForNewPayments() {
+	const unlock = await mutex.lockOrSkip('checkForNewPayments');
+	if (!unlock)
+		return console.log("already checking for new payments");
 	console.log("will check for new payments");
 	const rows = await db.query("SELECT in_address FROM swaps WHERE in_coin='BTC' AND status='waiting' AND creation_date > " + db.addTime("-7 DAY") + " ORDER BY swap_id DESC");
 	for (let { in_address } of rows) {
-		const history = await blockcypher.getAddressHistory(in_address);
+		let history;
+		try {
+			history = await blockcypher.getAddressHistory(in_address);
+		}
+		catch (e) {
+			console.log(`getting history for address ${in_address} failed`, e);
+			continue;
+		}
 		console.log("transactions", in_address, history);
 		for (let tx of history.txs) {
 			await onReceivedPayment(tx);
 		}
-		await wait(1000); // avoid rate limiting (10 sec for blockchain.info)
+		await wait(5000); // avoid rate limiting (10 sec for blockchain.info)
 	}
 	console.log("finished checking for new payments");
+	unlock();
 }
 
 
@@ -137,7 +148,7 @@ async function start() {
 	for (let { in_address } of rows)
 		blockchain_ws.subscribeToAddress(in_address);
 	await checkForNewPayments();
-	setInterval(checkForNewPayments, 600 * 1000);
+	setInterval(checkForNewPayments, 20 * 60 * 1000);
 }
 
 exports.start = start;
