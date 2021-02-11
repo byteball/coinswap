@@ -51,13 +51,19 @@ async function buy(deposit_amount, deposit_currency, out_address) {
 	if (err)
 		throw Error(err);
 	
-	// market buy
-	const resp = await bittrex.marketBuy(total);
-	if (resp.status !== 'closed')
-		throw Error(`market buy failed ${JSON.stringify(resp)}`);
-	const spent = resp.cost + resp.fee.cost;
-	console.log(`market buy ${total} GBYTE for ${out_address} done, spent ${spent}`);
-
+	if (net_amount > 0.0005) { // above dust limit
+		// market buy
+		const resp = await bittrex.marketBuy(total);
+		if (resp.status !== 'closed')
+			throw Error(`market buy failed ${JSON.stringify(resp)}`);
+		const spent = resp.cost + resp.fee.cost;
+		console.log(`market buy ${total} GBYTE for ${out_address} done, spent ${spent}`);
+	}
+	else {
+		console.log(`not buying for ${net_amount} BTC as the amount is below Bittrex's dust limit`);
+		if (total > balances.GBYTE)
+			throw Error(`not enough funds to withdraw ${total} GBYTE for a dust exchange, please refill your account`);
+	}
 	// withdraw
 	await bittrex.withdraw(total, out_address);
 	console.log(`submitted withdrawal of ${total} GBYTE to ${out_address}`);
