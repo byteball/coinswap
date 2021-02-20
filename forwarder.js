@@ -4,7 +4,7 @@
 const bitcoin = require('bitcoinjs-lib');
 const tatum = require('@tatumio/tatum');
 const blockchain_ws = require('./blockchain_ws.js');
-const blockcypher = require('./blockcypher.js');
+const blockstream = require('./blockstream.js');
 const db = require('ocore/db.js');
 const mutex = require('ocore/mutex.js');
 const addresses = require('./addresses.js');
@@ -18,21 +18,22 @@ async function onReceivedPayment(tx) {
 		console.log(`payment ${hash} already forwarded`);
 		return unlock();
 	}
-	const outputs = tx.out || tx.outputs;
+	const outputs = tx.out || tx.outputs || tx.vout;
 	if (!outputs)
 		throw Error(`no outputs in payload ${JSON.stringify(tx)}`);
 	for (let i = 0; i < outputs.length; i++) {
 		const output = outputs[i];
-		const address = output.addr || output.address || output.addresses[0];
+		const address = output.addr || output.address || output.scriptpubkey_address || output.addresses[0];
 		if (!address)
 			throw Error(`no address in output ${output}`);
+		console.log(`${address}: ${output.value}`);
 		const [swap] = await db.query("SELECT * FROM swaps WHERE in_coin='BTC' AND in_address=?", [address]);
 		if (!swap)
 			continue;
 		await db.query("UPDATE swaps SET status='received', in_amount=? WHERE swap_id=?", [output.value / 1e8, swap.swap_id]);
 
 		const privateKey = await addresses.getPrivateKey(swap.in_coin, swap.in_address_index);
-		console.log({privateKey})
+	//	console.log({privateKey})
 		const fee = Math.round(200 * process.env.bitcoin_fee_sats_per_byte); // 200 bytes
 		const forwarded_amount = (output.value - fee) / 1e8;
 		const body = new tatum.TransferBtcBasedBlockchain();
@@ -98,14 +99,19 @@ async function checkForNewPayments() {
 	for (let { in_address } of rows) {
 		let history;
 		try {
-			history = await blockcypher.getAddressHistory(in_address);
+			history = await blockstream.getAddressHistory(in_address);
 		}
 		catch (e) {
 			console.log(`getting history for address ${in_address} failed`, e);
 			continue;
 		}
 		console.log("transactions", in_address, history);
-		for (let tx of history.txs) {
+		if (!Array.isArray(history)) {
+			if (!history.txs)
+				throw Error(`no txs in history ${JSON.stringify(history)}`);
+			history = history.txs;
+		}
+		for (let tx of history) {
 			await onReceivedPayment(tx);
 		}
 		await wait(5000); // avoid rate limiting (10 sec for blockchain.info)
