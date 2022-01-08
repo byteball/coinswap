@@ -59,6 +59,11 @@ class WsEmitter extends EventEmitter {
 				this.close();
 				return;
 			}
+			if (!self.ws) {
+				console.log("the connection is not available any more, will close");
+				this.close();
+				return;
+			}
 			clearTimeout(timeout);
 			self.ws.last_ts = Date.now();
 			console.log('connected to blockchain.info ws');
